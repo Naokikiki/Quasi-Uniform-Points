@@ -314,13 +314,98 @@ class ExplicitRank1Lattice:
                     B[row, 0] = (gj_inv * int(g[i]) % N) / N
                     row += 1
         else:
-            # Fallback: no component coprime to N (shouldn't happen if gcd(N,g)=1)
-            # Use simple structure
-            B[0, 0] = 1.0 / N
-            for i in range(1, d):
-                B[i, 0] = float(g[i]) / N
+            # No component coprime to N
+            print("Warning: No component of g is coprime to N. ")
+            # Build basis using column reduction of d x (d+1) matrix
+            B = self._reduce_by_column_operations(g, N)
         
         return B
+    
+    def _reduce_by_column_operations(self, z: np.ndarray, N: int) -> np.ndarray:
+        """
+        Reduce d x (d+1) matrix to d x d by column operations.
+        
+        Starting matrix (integer, scaled by N):
+            M = [z | N*I_d] = [[z_0, N, 0, ..., 0],
+                               [z_1, 0, N, ..., 0],
+                               [..., ..., ..., ...],
+                               [z_{d-1}, 0, 0, ..., N]]
+        
+        Apply column operations (add integer multiples of one column to another)
+        to create a column of zeros, then remove it to get d x d matrix.
+        
+        Strategy: Use extended GCD to combine columns and create zeros.
+        """
+        d = self.d
+        z = z.astype(np.int64)
+        
+        # Build d x (d+1) integer matrix: [z | N*I_d]
+        M = np.zeros((d, d + 1), dtype=np.int64)
+        M[:, 0] = z
+        for i in range(d):
+            M[i, i + 1] = N
+        
+        # Apply column operations to make one column all zeros
+        # We'll work on making column 0 all zeros by combining with other columns
+        
+        # For each row, use extended GCD to eliminate z[i] using column i+1
+        # gcd(z[i], N) * k = z[i] for some combination
+        
+        # Process each row: combine column 0 with column i+1 to put gcd in column i+1
+        # and eventually make column 0 all zeros
+        
+        for i in range(d):
+            a = M[i, 0]      # Current entry in column 0, row i
+            b = M[i, i + 1]  # Entry in column i+1, row i (initially N)
+            
+            if a == 0:
+                continue
+            
+            # Extended GCD: g = gcd(a, b) = s*a + t*b
+            g, s, t = self._extended_gcd(abs(a), abs(b))
+            if a < 0:
+                s = -s
+            if b < 0:
+                t = -t
+            
+            # We want to transform [a, b] -> [0, g] using unimodular matrix
+            # [[s, t], [-b/g, a/g]] @ [[a], [b]] = [[g], [0]]
+            # But we want [0, g], so use:
+            # [[-b/g, a/g], [s, t]] @ [[a], [b]] = [[0], [g]]
+            
+            u = -b // g  # Coefficient for column 0 in new column 0
+            v = a // g   # Coefficient for column i+1 in new column 0
+            
+            # New columns:
+            # new_col_0 = u * col_0 + v * col_{i+1}  -> has 0 at row i
+            # new_col_{i+1} = s * col_0 + t * col_{i+1}  -> has g at row i
+            
+            col0_new = u * M[:, 0] + v * M[:, i + 1]
+            coli_new = s * M[:, 0] + t * M[:, i + 1]
+            
+            M[:, 0] = col0_new
+            M[:, i + 1] = coli_new
+        
+        # Now column 0 should be all zeros (or close to it)
+        # Remove column 0 and divide by N
+        B = M[:, 1:].astype(np.float64) / N
+        
+        return B
+    
+    def _extended_gcd(self, a: int, b: int) -> Tuple[int, int, int]:
+        """
+        Extended Euclidean algorithm.
+        
+        Returns (g, s, t) such that g = gcd(a, b) = s*a + t*b.
+        """
+        if b == 0:
+            return a, 1, 0
+        
+        g, s1, t1 = self._extended_gcd(b, a % b)
+        s = t1
+        t = s1 - (a // b) * t1
+        
+        return g, s, t
     
     def _compute_primal_lattice_basis(self) -> np.ndarray:
         """Compute a basis for the primal lattice (the generating matrix T)."""
