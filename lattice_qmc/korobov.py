@@ -102,7 +102,7 @@ class KorobovLattice:
         d: int,
         N: int,
         generator: Optional[int] = None,
-        criterion: str = "dual",
+        criterion: str = "product",
         verbose: bool = False
     ):
         if criterion not in self.VALID_CRITERIA:
@@ -186,7 +186,7 @@ class KorobovLattice:
             Generating matrix T of shape (d, d).
         """
         d = len(z)
-        N = self.N
+        N = int(self.N)  # Ensure N is Python int, not numpy int
         
         # Compute z_1^{-1} mod N (multiplicative inverse)
         z1 = int(z[0])
