@@ -17,9 +17,11 @@ experiments (Section 4 of the paper):
 
 The maximin LHS is built by a best-of-many random search over Latin
 hypercube designs followed by a Morris--Mitchell style column-swap local
-search, both driven by the (toroidal) minimum pairwise distance so that the
-resulting design is directly comparable with the lattice point sets, whose
-separation radius is measured with the same toroidal metric.
+search, both driven by the (ordinary Euclidean) minimum pairwise distance.
+Unlike the rank-1 lattices, a Latin hypercube design has no periodic
+structure, so its minimum pairwise distance -- and hence its separation
+radius -- is measured with the ordinary (non-toroidal) Euclidean metric on
+[0,1)^d.
 """
 
 from __future__ import annotations
@@ -65,7 +67,7 @@ def maximin_lhs(
     seed: Optional[int] = 42,
     n_candidates: Optional[int] = None,
     n_swaps: Optional[int] = None,
-    toroidal: bool = True,
+    toroidal: bool = False,
 ) -> np.ndarray:
     """
     Generate a maximin-optimized Latin hypercube design with ``n`` points.
@@ -87,7 +89,9 @@ def maximin_lhs(
     n_candidates, n_swaps : int, optional
         Search-effort parameters; sensible ``n``-dependent defaults are used.
     toroidal : bool
-        Whether the maximin criterion uses the toroidal distance.
+        Whether the maximin criterion uses the toroidal distance. Defaults to
+        ``False``: a Latin hypercube design is not periodic, so the ordinary
+        Euclidean distance on ``[0,1)^d`` is used.
 
     Returns
     -------
