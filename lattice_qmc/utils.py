@@ -255,29 +255,96 @@ def lll_reduce(basis: np.ndarray, delta: float = 0.75) -> Tuple[np.ndarray, np.n
     return B, H
 
 
+def lll_reduce_fast(basis: np.ndarray, delta: float = 0.75) -> np.ndarray:
+    """
+    LLL basis reduction with an incremental Gram-Schmidt update.
+
+    This is a drop-in, faster equivalent of :func:`lll_reduce` for the purpose
+    of finding the shortest reduced vector: it follows the exact same reduction
+    logic (same ``delta``, same size-reduction order, same Lovász swap rule) but
+    maintains the Gram-Schmidt coefficients incrementally, recomputing them fully
+    only after a swap. The original :func:`lll_reduce` recomputes the full
+    Gram-Schmidt orthogonalization at the top of every iteration *and* after every
+    single size-reduction step, which dominates the runtime of the generator
+    search in :class:`~lattice_qmc.korobov.KorobovLattice`.
+
+    The reduced basis (and hence its shortest row norm) is identical to that of
+    :func:`lll_reduce`; verified to machine precision on the Korobov and explicit
+    rank-1 lattice bases used throughout this package. Only the reduced basis is
+    returned, since the unimodular transform is never consumed by callers.
+
+    Parameters
+    ----------
+    basis : np.ndarray
+        Input basis matrix of shape (n, d), where rows are basis vectors.
+    delta : float, optional
+        Reduction parameter, 0.25 < delta < 1 (default: 0.75).
+
+    Returns
+    -------
+    reduced_basis : np.ndarray
+        LLL-reduced basis (rows are basis vectors).
+    """
+    B = basis.astype(np.float64).copy()
+    n = B.shape[0]
+    Bstar = np.zeros_like(B)
+    mu = np.zeros((n, n))
+    Bnorm = np.zeros(n)
+
+    def gram_schmidt_full():
+        for i in range(n):
+            Bstar[i] = B[i]
+            for j in range(i):
+                mu[i, j] = np.dot(B[i], Bstar[j]) / Bnorm[j] if Bnorm[j] > 1e-30 else 0.0
+                Bstar[i] -= mu[i, j] * Bstar[j]
+            Bnorm[i] = np.dot(Bstar[i], Bstar[i])
+        np.fill_diagonal(mu, 1.0)  # so the diagonal term is absorbed by the vectorized update
+
+    gram_schmidt_full()
+
+    k = 1
+    while k < n:
+        # Size reduction of b_k against b_{k-1}, ..., b_0
+        for j in range(k - 1, -1, -1):
+            if abs(mu[k, j]) > 0.5:
+                q = round(mu[k, j])
+                B[k] -= q * B[j]
+                mu[k, :j + 1] -= q * mu[j, :j + 1]
+
+        # Lovász condition
+        if Bnorm[k] >= (delta - mu[k, k - 1] ** 2) * Bnorm[k - 1]:
+            k += 1
+        else:
+            B[[k, k - 1]] = B[[k - 1, k]]
+            gram_schmidt_full()  # basis changed structurally; refresh the GSO
+            k = max(k - 1, 1)
+
+    return B
+
+
 def shortest_vector_length(basis: np.ndarray, use_lll: bool = True) -> float:
     """
     Estimate the length of the shortest non-zero vector in a lattice.
-    
+
     Uses LLL reduction to find an approximately shortest vector.
-    
+
     Parameters
     ----------
     basis : np.ndarray
         Lattice basis matrix of shape (n, d).
     use_lll : bool, optional
         If True, use LLL reduction first (default: True).
-    
+
     Returns
     -------
     float
         Length of the (approximately) shortest vector.
     """
     if use_lll:
-        reduced_basis, _ = lll_reduce(basis)
+        reduced_basis = lll_reduce_fast(basis)
     else:
         reduced_basis = basis
-    
+
     # The first vector of an LLL-reduced basis is approximately shortest
     lengths = np.linalg.norm(reduced_basis, axis=1)
     return np.min(lengths)
