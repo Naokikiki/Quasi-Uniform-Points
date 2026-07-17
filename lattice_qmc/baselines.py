@@ -5,7 +5,7 @@ Baseline designs and test functions for the revision experiments.
 This module collects helpers that are shared across the revision
 experiments (Section 4 of the paper):
 
-  * ``maximin_lhs``        -- a maximin-optimized Latin hypercube design,
+  * ``maximin_lhd``        -- a maximin-optimized Latin hypercube design,
                               added as a space-filling baseline in response
                               to the reviewer request for a comparison
                               against maximin distance-based designs.
@@ -15,7 +15,7 @@ experiments (Section 4 of the paper):
   * ``matern52_gram``      -- Matern(nu=5/2) Gram matrix and its condition
                               number, used for the numerical-stability study.
 
-The maximin LHS is built by a best-of-many random search over Latin
+The maximin LHD is built by a best-of-many random search over Latin
 hypercube designs followed by a Morris--Mitchell style column-swap local
 search, both driven by the (ordinary Euclidean) minimum pairwise distance.
 Unlike the rank-1 lattices, a Latin hypercube design has no periodic
@@ -52,7 +52,7 @@ def _row_dist(point: np.ndarray, points: np.ndarray, toroidal: bool = True) -> n
     return np.sqrt((diff ** 2).sum(axis=1))
 
 
-def _random_lhs(n: int, d: int, rng: np.random.Generator) -> np.ndarray:
+def _random_lhd(n: int, d: int, rng: np.random.Generator) -> np.ndarray:
     """A single jittered Latin hypercube design in [0,1)^d."""
     pts = np.empty((n, d))
     for j in range(d):
@@ -61,7 +61,7 @@ def _random_lhs(n: int, d: int, rng: np.random.Generator) -> np.ndarray:
     return pts
 
 
-def maximin_lhs(
+def maximin_lhd(
     n: int,
     d: int,
     seed: Optional[int] = 42,
@@ -96,11 +96,11 @@ def maximin_lhs(
     Returns
     -------
     np.ndarray
-        Maximin LHS point set of shape ``(n, d)`` in ``[0, 1)^d``.
+        Maximin LHD point set of shape ``(n, d)`` in ``[0, 1)^d``.
     """
     rng = np.random.default_rng(seed)
     if n < 2:
-        return _random_lhs(max(n, 1), d, rng)
+        return _random_lhd(max(n, 1), d, rng)
 
     if n_candidates is None:
         n_candidates = int(min(200, max(20, 50_000 // n)))
@@ -110,7 +110,7 @@ def maximin_lhs(
     # Best of several random Latin hypercube designs.
     best_pts, best_D, best_min = None, None, -np.inf
     for _ in range(n_candidates):
-        pts = _random_lhs(n, d, rng)
+        pts = _random_lhd(n, d, rng)
         D = _dist_matrix(pts, toroidal)
         m = D.min()
         if m > best_min:

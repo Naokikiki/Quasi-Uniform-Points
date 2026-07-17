@@ -55,7 +55,7 @@ The Korobov and explicit rank-1 lattices are the only designs that deterministic
 
 ### Helper module
 
-The maximin LHS, the general-dimension Genz / pairwise-trigonometric test functions, and the Matérn-5/2 Gram matrix used by the experiments live in `lattice_qmc/baselines.py`.
+The maximin LHD, the general-dimension Genz / pairwise-trigonometric test functions, and the Matérn-5/2 Gram matrix used by the experiments live in `lattice_qmc/baselines.py`.
 
 ### Data
 
@@ -89,8 +89,8 @@ lattice = ExplicitRank1Lattice(d=d, m=10, alpha=alpha)
 points = lattice.points  # shape (Q, 3) in [0, 1]^3
 
 # Maximin Latin hypercube baseline
-from lattice_qmc.baselines import maximin_lhs
-lhs_points = maximin_lhs(n=128, d=3, seed=2024)  # shape (128, 3) in [0, 1)^3
+from lattice_qmc.baselines import maximin_lhd
+lhd_points = maximin_lhd(n=128, d=3, seed=2024)  # shape (128, 3) in [0, 1)^3
 ```
 
 ## Citation
